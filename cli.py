@@ -107,7 +107,7 @@ def main() -> None:
         # Check if optimization is enabled
         if args.optimize or args.optimize_only:
             # Create OptunaExperimentRunner
-            optuna_runner = OptunaExperimentRunner(
+            optuna_experiment_runner = OptunaExperimentRunner(
                 experiment_config=experiment_config,
                 experiment_prefix=experiment_prefix,
                 optimization_metric=args.optimize_metric,
@@ -123,18 +123,24 @@ def main() -> None:
             # Run optimization and then final experiment with best parameters
             if args.optimize_only:
                 # Just run optimization
-                optuna_runner.run_optimization(model_class=MODELS[args.model_type])
+                optuna_experiment_runner.run_optimization(
+                    model_class=MODELS[args.model_type]
+                )
             else:
                 # Run optimization and then final experiment
-                optuna_runner.run_with_best_params(model_class=MODELS[args.model_type])
+                optuna_experiment_runner.run_with_best_params(
+                    model_class=MODELS[args.model_type]
+                )
         else:
             # Create regular ExperimentRunner
-            regular_runner = ExperimentRunner(
+            regular_experiment_runner = ExperimentRunner(
                 experiment_config=experiment_config,
                 experiment_prefix=experiment_prefix,
                 verbose=True,
             )
-            regular_runner.run_experiment(model_class=MODELS[args.model_type])
+            regular_experiment_runner.run_experiment(
+                model_class=MODELS[args.model_type]
+            )
     except KeyError:
         logger.error("Model type %s not supported yet.", args.model_type)
         return
