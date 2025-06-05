@@ -251,7 +251,7 @@ class ExperimentConfig(object):
 
             # AST-specific parameters
             if hasattr(config.model, "fstride") and hasattr(config.model, "tstride"):
-                config.model.fstride = trial.suggest_int("fstride", 8, 12)
-                config.model.tstride = trial.suggest_int("tstride", 8, 12)
+                config.model.fstride = trial.suggest_int("fstride", 10, 10)
+                config.model.tstride = trial.suggest_int("tstride", 10, 10)
 
         return config
