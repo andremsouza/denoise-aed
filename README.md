@@ -1,1 +1,1 @@
-# denoise-aed
+# intrinsic-dimension
