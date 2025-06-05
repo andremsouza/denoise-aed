@@ -115,7 +115,7 @@ def main() -> None:
                 n_trials=args.n_trials,
                 n_jobs=args.n_jobs,
                 timeout=args.timeout,
-                study_name=args.study_name,
+                study_name=args.study_name if args.study_name else experiment_prefix,
                 storage=args.storage,
                 verbose=True,
             )
