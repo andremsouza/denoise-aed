@@ -79,9 +79,12 @@ def main() -> None:
 
     # Update AST-specific settings if applicable
     if args.model_type == "ast":
-        model_config.imagenet_pretrain = args.ast_imagenet_pretrain
-        model_config.audioset_pretrain = args.ast_audioset_pretrain
-        model_config.model_size = args.ast_model_size
+        if hasattr(model_config, "imagenet_pretrain"):
+            model_config.imagenet_pretrain = args.ast_imagenet_pretrain
+        if hasattr(model_config, "audioset_pretrain"):
+            model_config.audioset_pretrain = args.ast_audioset_pretrain
+        if hasattr(model_config, "model_size"):
+            model_config.model_size = args.ast_model_size
 
     # Assign model config to experiment config
     experiment_config.model = model_config
