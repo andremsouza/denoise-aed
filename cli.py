@@ -4,7 +4,6 @@ Command-line interface for running intrinsic dimension experiments.
 """
 
 import argparse
-from datetime import datetime
 import logging
 
 import torch
@@ -87,12 +86,10 @@ def main() -> None:
 
     # Update AST-specific settings if applicable
     if args.model_type == "ast":
-        if hasattr(model_config, "imagenet_pretrain"):
-            model_config.imagenet_pretrain = args.ast_imagenet_pretrain
-        if hasattr(model_config, "audioset_pretrain"):
-            model_config.audioset_pretrain = args.ast_audioset_pretrain
-        if hasattr(model_config, "model_size"):
-            model_config.model_size = args.ast_model_size
+        # Use setattr to safely set attributes or update them if they exist
+        setattr(model_config, "imagenet_pretrain", args.ast_imagenet_pretrain)
+        setattr(model_config, "audioset_pretrain", args.ast_audioset_pretrain)
+        setattr(model_config, "model_size", args.ast_model_size)
 
     # Assign model config to experiment config
     experiment_config.model = model_config
@@ -102,15 +99,15 @@ def main() -> None:
 
     # Run the experiment
     experiment_prefix: str = "intrinsic_dimension"
-    logger.info(f"Starting experiment with prefix: {experiment_prefix}")
-    logger.info(f"Using model type: {args.model_type}")
-    logger.info(f"Arguments: {args}")
+    logger.info("Starting experiment with prefix: %s", experiment_prefix)
+    logger.info("Using model type: %s", args.model_type)
+    logger.info("Arguments: %s", args)
 
     try:
         # Check if optimization is enabled
         if args.optimize or args.optimize_only:
             # Create OptunaExperimentRunner
-            experiment = OptunaExperimentRunner(
+            optuna_runner = OptunaExperimentRunner(
                 experiment_config=experiment_config,
                 experiment_prefix=experiment_prefix,
                 optimization_metric=args.optimize_metric,
@@ -126,38 +123,35 @@ def main() -> None:
             # Run optimization and then final experiment with best parameters
             if args.optimize_only:
                 # Just run optimization
-                experiment.run_optimization(model_class=MODELS[args.model_type])
+                optuna_runner.run_optimization(model_class=MODELS[args.model_type])
             else:
                 # Run optimization and then final experiment
-                experiment.run_with_best_params(model_class=MODELS[args.model_type])
+                optuna_runner.run_with_best_params(model_class=MODELS[args.model_type])
         else:
             # Create regular ExperimentRunner
-            experiment = ExperimentRunner(
+            regular_runner = ExperimentRunner(
                 experiment_config=experiment_config,
                 experiment_prefix=experiment_prefix,
                 verbose=True,
             )
-            experiment.run_experiment(model_class=MODELS[args.model_type])
+            regular_runner.run_experiment(model_class=MODELS[args.model_type])
     except KeyError:
-        logger.error(f"Model type {args.model_type} not supported yet.")
+        logger.error("Model type %s not supported yet.", args.model_type)
         return
 
     logger.info("Experiment complete")
 
 
-def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
-    """Parse command-line arguments.
+def _add_infrastructure_args(
+    parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
+) -> None:
+    """Add infrastructure-related arguments to the parser.
 
     Args:
-        experiment_config: Default configuration to use for argument defaults
-
-    Returns:
-        Parsed arguments
+        parser: The argument parser
+        experiment_config: The experiment configuration
     """
-    parser = argparse.ArgumentParser(description="Run intrinsic dimension experiments")
-
     infra_args = parser.add_argument_group("Infrastructure Arguments")
-    # Infrastructure arguments
     infra_args.add_argument(
         "--use-mlflow",
         action="store_true",
@@ -165,7 +159,16 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
         help="Use MLflow for experiment tracking",
     )
 
-    # Data arguments
+
+def _add_data_args(
+    parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
+) -> None:
+    """Add data-related arguments to the parser.
+
+    Args:
+        parser: The argument parser
+        experiment_config: The experiment configuration
+    """
     data_args = parser.add_argument_group("Data Arguments")
     data_args.add_argument(
         "--data-dir",
@@ -192,7 +195,16 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
         help="Number of frequency bands",
     )
 
-    # Training arguments
+
+def _add_training_args(
+    parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
+) -> None:
+    """Add training-related arguments to the parser.
+
+    Args:
+        parser: The argument parser
+        experiment_config: The experiment configuration
+    """
     training_args = parser.add_argument_group("Training Arguments")
     training_args.add_argument(
         "--batch-size",
@@ -250,7 +262,16 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
         help="Use pretrained model checkpoints if available",
     )
 
-    # Annotation arguments
+
+def _add_annotation_args(
+    parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
+) -> None:
+    """Add annotation-related arguments to the parser.
+
+    Args:
+        parser: The argument parser
+        experiment_config: The experiment configuration
+    """
     annotation_args = parser.add_argument_group("Annotation Arguments")
     annotation_args.add_argument(
         "--num-classes",
@@ -265,7 +286,16 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
         help="Length of audio samples in seconds",
     )
 
-    # Evaluation arguments
+
+def _add_evaluation_args(
+    parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
+) -> None:
+    """Add evaluation-related arguments to the parser.
+
+    Args:
+        parser: The argument parser
+        experiment_config: The experiment configuration
+    """
     evaluation_args = parser.add_argument_group("Evaluation Arguments")
     evaluation_args.add_argument(
         "--skip-trained",
@@ -280,7 +310,13 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
         help="Threshold for making predictions",
     )
 
-    # Model arguments
+
+def _add_model_args(parser: argparse.ArgumentParser) -> None:
+    """Add model selection arguments to the parser.
+
+    Args:
+        parser: The argument parser
+    """
     model_args = parser.add_argument_group("Model Arguments")
     model_args.add_argument(
         "--model-type",
@@ -299,7 +335,16 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
         help="Type of model architecture to use",
     )
 
-    # Model-specific arguments
+
+def _add_model_specific_args(
+    parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
+) -> None:
+    """Add model-specific arguments to the parser.
+
+    Args:
+        parser: The argument parser
+        experiment_config: The experiment configuration
+    """
     model_specific_args = parser.add_argument_group("Model-Specific Arguments")
     model_specific_args.add_argument(
         "--lr",
@@ -326,13 +371,13 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
     model_specific_args.add_argument(
         "--ast-imagenet-pretrain",
         action=argparse.BooleanOptionalAction,
-        default=True,  # Set your desired default
+        default=True,
         help="Use ImageNet pretrained weights for AST (default: True)",
     )
     model_specific_args.add_argument(
         "--ast-audioset-pretrain",
         action=argparse.BooleanOptionalAction,
-        default=True,  # Set your desired default
+        default=True,
         help="Use AudioSet pretrained weights for AST (default: True)",
     )
     model_specific_args.add_argument(
@@ -343,7 +388,16 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
         help="Model size for AST",
     )
 
-    # Optuna arguments
+
+def _add_optuna_args(
+    parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
+) -> None:
+    """Add Optuna-related arguments to the parser.
+
+    Args:
+        parser: The argument parser
+        experiment_config: The experiment configuration
+    """
     optuna_args = parser.add_argument_group("Optuna Arguments")
     optuna_args.add_argument(
         "--optimize",
@@ -406,6 +460,28 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
         default=experiment_config.infrastructure.optuna_storage,
         help="Optuna storage URL (e.g., sqlite:///optuna.db)",
     )
+
+
+def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
+    """Parse command-line arguments.
+
+    Args:
+        experiment_config: Default configuration to use for argument defaults
+
+    Returns:
+        Parsed arguments
+    """
+    parser = argparse.ArgumentParser(description="Run intrinsic dimension experiments")
+
+    # Add arguments by category
+    _add_infrastructure_args(parser, experiment_config)
+    _add_data_args(parser, experiment_config)
+    _add_training_args(parser, experiment_config)
+    _add_annotation_args(parser, experiment_config)
+    _add_evaluation_args(parser, experiment_config)
+    _add_model_args(parser)
+    _add_model_specific_args(parser, experiment_config)
+    _add_optuna_args(parser, experiment_config)
 
     # Parse arguments
     args = parser.parse_args()
