@@ -70,13 +70,11 @@ class DataConfig:
         num_bands: Number of frequency bands
     """
 
-    data_directory: str = "/srv/andre/intrinsic_dimension/data/aswine/audio/"
-    annotation_file: str = "/srv/andre/intrinsic_dimension/data/aswine/meta/aswine_raw_full.csv"
-    train_annotation_file: str = (
-        "/srv/andre/intrinsic_dimension/data/aswine/meta/train_aswine_raw_full.csv"
-    )
-    val_annotation_file: str = "/srv/andre/intrinsic_dimension/data/aswine/meta/val_aswine_raw_full.csv"
-    test_annotation_file: str = "/srv/andre/intrinsic_dimension/data/aswine/meta/test_aswine_raw_full.csv"
+    data_directory: str = "./data/aswine/audio/"
+    annotation_file: str = "./data/aswine/meta/aswine_raw_full.csv"
+    train_annotation_file: str = "./data/aswine/meta/train_aswine_raw_full.csv"
+    val_annotation_file: str = "./data/aswine/meta/val_aswine_raw_full.csv"
+    test_annotation_file: str = "./data/aswine/meta/test_aswine_raw_full.csv"
     sample_rate: int = 16000
     num_bands: int = 64
     train_mean: float | None = -0.0003
