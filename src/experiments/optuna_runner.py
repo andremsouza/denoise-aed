@@ -209,7 +209,7 @@ class OptunaExperimentRunner(ExperimentRunner):
 
         # Create or load study
         study = optuna.create_study(
-            study_name=self.study_name,
+            study_name=f"{self.study_name}_{model_class.__name__}",
             storage=self.storage,
             load_if_exists=True,
             direction=self.direction,
@@ -224,7 +224,7 @@ class OptunaExperimentRunner(ExperimentRunner):
         # Set up MLflow tracking
         if self.experiment_config.infrastructure.use_mlflow:
             with mlflow.start_run(
-                run_name=f"{self.experiment_prefix}_optimization_{datetime.now()}",
+                run_name=f"{self.experiment_prefix}_{model_class.__name__}_optimization_{datetime.now()}",
                 tags={"owner": "André Moreira Souza", "type": "optimization"},
             ):
                 mlflow.log_param("n_trials", self.n_trials)
