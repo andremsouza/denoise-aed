@@ -91,9 +91,9 @@ class PLAST(BaseAudioLightningModule):
         )
         # Spec augmenter
         self.model.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
+            time_drop_width=config.input_tdim,
             time_stripes_num=2,
-            freq_drop_width=8,
+            freq_drop_width=config.input_fdim,
             freq_stripes_num=2,
         )
 
