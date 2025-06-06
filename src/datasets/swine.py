@@ -256,6 +256,10 @@ class SwineWaveformDataset(Dataset):
             + r"_(\d{2})-(\d{2})-(\d{2}).*$"
         )
         match: re.Match[str] = re.fullmatch(pattern, filename)  # type: ignore
+        if not match:
+            raise ValueError(
+                f"Filename '{filename}' does not match the expected pattern."
+            )
         data = {
             "timestamp": datetime(
                 year=int(match.groups()[2]),
