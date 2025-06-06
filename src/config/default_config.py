@@ -14,12 +14,10 @@ USE_MLFLOW = config.infrastructure.use_mlflow
 
 # Data constants
 DATA_DIRECTORY = config.data.data_directory
-TRANSFORMED_DATA_DIRECTORY = config.data.transformed_data_directory
 ANNOTATION_FILE = config.data.annotation_file
 TRAIN_ANNOTATION_FILE = config.data.train_annotation_file
 VAL_ANNOTATION_FILE = config.data.val_annotation_file
 TEST_ANNOTATION_FILE = config.data.test_annotation_file
-FEATURE_FILE = config.data.feature_file
 SAMPLE_RATE = config.data.sample_rate
 NUM_BANDS = config.data.num_bands
 
