@@ -16,6 +16,7 @@ polars
 psutil
 psycopg2-binary
 psycopg[binary]
+pystoi
 pytest
 pytest-cov
 scikit-dimension
