@@ -90,12 +90,7 @@ class PLAST(BaseAudioLightningModule):
             freeze_parameters=True,
         )
         # Spec augmenter
-        self.model.spec_augmenter = SpecAugmentation(
-            time_drop_width=config.input_tdim,
-            time_stripes_num=2,
-            freq_drop_width=config.input_fdim,
-            freq_stripes_num=2,
-        )
+        self.model.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.checkpoint_path = config.checkpoint_path
         self._load_checkpoint(self.checkpoint_path)

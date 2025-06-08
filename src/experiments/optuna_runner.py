@@ -1,11 +1,13 @@
 from datetime import datetime
-from typing import Any, Callable
+import gc
+import logging
 
+import lightning.pytorch as pl
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 import mlflow
 import optuna
 from optuna.integration import PyTorchLightningPruningCallback
-import lightning.pytorch as pl
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+import torch
 
 from src.config.experiment_config import ExperimentConfig
 from src.experiments.base import (
@@ -13,6 +15,8 @@ from src.experiments.base import (
     load_swine_datasets,
     create_data_loaders,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class OptunaExperimentRunner(ExperimentRunner):
@@ -81,9 +85,7 @@ class OptunaExperimentRunner(ExperimentRunner):
         self.experiment_config = trial_config
 
         if self.verbose:
-            print(
-                f"[{datetime.now()}]: Trial {trial.number} - Testing parameters: {trial.params}"
-            )
+            logger.info("Trial %s - Testing parameters: %s", trial.number, trial.params)
 
         try:
             # Load datasets with the trial config
@@ -110,7 +112,7 @@ class OptunaExperimentRunner(ExperimentRunner):
             model = self._create_model(model_class)
 
             # Set up loggers (minimal for trials)
-            loggers = self._setup_loggers(trial_experiment_name)
+            exp_loggers = self._setup_loggers(trial_experiment_name)
 
             # Create pruning callback for Optuna
             self.pruning_callback = PyTorchLightningPruningCallback(
@@ -121,7 +123,7 @@ class OptunaExperimentRunner(ExperimentRunner):
             early_stopping = EarlyStopping(
                 monitor=self.optimization_metric,
                 mode="max" if self.direction == "maximize" else "min",
-                patience=trial_config.training.early_stopping_patience // 2,
+                patience=trial_config.training.early_stopping_patience,
                 verbose=False,
             )
 
@@ -139,53 +141,85 @@ class OptunaExperimentRunner(ExperimentRunner):
             )
 
             # Set up trainer with fewer epochs for trials
-            # Limit epochs for trials
             max_epochs = min(trial_config.training.max_epochs, 20)
             trainer = pl.Trainer(
                 callbacks=[checkpoint_callback, early_stopping, self.pruning_callback],
                 max_epochs=max_epochs,
-                logger=loggers,
+                logger=exp_loggers,
                 log_every_n_steps=min(50, len(train_dataloader)),
                 enable_checkpointing=True,
                 enable_progress_bar=self.verbose,
             )
 
-            # Train model
-            trainer.fit(model, train_dataloader, test_dataloader)
+            # Run training
+            try:
+                if self.experiment_config.infrastructure.use_mlflow:
+                    with mlflow.start_run(
+                        run_name=f"{trial_experiment_name}",
+                        tags={"owner": "André Moreira Souza"},
+                        log_system_metrics=self.experiment_config.infrastructure.mlflow_log_system_metrics,
+                    ):
+                        mlflow.log_param("run_name", trial_experiment_name)
+                        mlflow.log_params(self.experiment_config.to_dict(flat=True))
+                        mlflow.log_params(trial.params)
+                        mlflow.log_param("trial_number", trial.number)
+                        trainer.fit(model, train_dataloader, test_dataloader)
+                else:
+                    trainer.fit(model, train_dataloader, test_dataloader)
+            except optuna.exceptions.TrialPruned as e:
+                if self.verbose:
+                    logger.info("Trial %s pruned: %s", trial.number, str(e))
+                # Clean up resources
+                local_vars = locals()
+                for var in ["model", "train_dataloader", "test_dataloader", "trainer"]:
+                    if var in local_vars and local_vars[var] is not None:
+                        del local_vars[var]
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                gc.collect()
+                raise e
 
             # Get best score
             best_score = 0.0 if self.direction == "maximize" else float("inf")
             if checkpoint_callback.best_model_score is not None:
                 best_score = float(checkpoint_callback.best_model_score)
 
-            # Log trial results to MLflow if enabled
-            if self.experiment_config.infrastructure.use_mlflow:
-                with mlflow.start_run(
-                    run_name=f"{trial_experiment_name}",
-                    nested=True,
-                ):
-                    mlflow.log_params(trial.params)
-                    mlflow.log_metric(self.optimization_metric, float(best_score))
-                    mlflow.log_param("trial_number", trial.number)
-
             if self.verbose:
-                print(
-                    f"[{datetime.now()}]: Trial {trial.number} completed with score: {best_score}"
+                logger.info(
+                    "Trial %s completed with score: %s", trial.number, best_score
                 )
+
+            # Clean up resources
+            del model, train_dataloader, test_dataloader, trainer
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
 
             return float(best_score)
 
-        # pylint: disable=broad-exception-caught
-        except Exception as e:
+        except (
+            FileNotFoundError,
+            ValueError,
+            RuntimeError,
+            torch.cuda.OutOfMemoryError,
+            OSError,
+            TypeError,
+            IndexError,
+        ) as e:
             if self.verbose:
-                print(
-                    f"[{datetime.now()}]: Trial {trial.number} failed with error: {str(e)}"
+                logger.error(
+                    "Trial %s failed with error: %s",
+                    trial.number,
+                    str(e),
+                    exc_info=True,
                 )
-            # Return a poor value to indicate failure
+            local_vars = locals()
+            for var in ["model", "train_dataloader", "test_dataloader", "trainer"]:
+                if var in local_vars and local_vars[var] is not None:
+                    del local_vars[var]
             return 0.0 if self.direction == "maximize" else float("inf")
 
         finally:
-            # Restore original config
             self.experiment_config = original_config
 
     def run_optimization(
@@ -200,12 +234,8 @@ class OptunaExperimentRunner(ExperimentRunner):
             Tuple of (best configuration, best value)
         """
         if self.verbose:
-            print(
-                f"[{datetime.now()}]: Starting optimization with {self.n_trials} trials"
-            )
-            print(
-                f"[{datetime.now()}]: Optimizing {self.optimization_metric} to {self.direction}"
-            )
+            logger.info("Starting optimization with %s trials", self.n_trials)
+            logger.info("Optimizing %s to %s", self.optimization_metric, self.direction)
 
         # Create or load study
         study = optuna.create_study(
@@ -223,15 +253,20 @@ class OptunaExperimentRunner(ExperimentRunner):
 
         # Set up MLflow tracking
         if self.experiment_config.infrastructure.use_mlflow:
+            opt_run_name = (
+                f"{self.experiment_prefix}_{model_class.__name__}"
+                f"_opt_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            )
             with mlflow.start_run(
-                run_name=f"{self.experiment_prefix}_{model_class.__name__}_optimization_{datetime.now()}",
-                tags={"owner": "André Moreira Souza", "type": "optimization"},
+                run_name=opt_run_name,
+                tags={"owner": "André Moreira Souza", "type": "optimization_study"},
             ):
                 mlflow.log_param("n_trials", self.n_trials)
                 mlflow.log_param("optimization_metric", self.optimization_metric)
                 mlflow.log_param("direction", self.direction)
+                mlflow.log_param("study_name", study.study_name)
+                mlflow.log_param("model_class", model_class.__name__)
 
-                # Run the optimization
                 study.optimize(
                     lambda trial: self._objective(trial, model_class),
                     n_trials=self.n_trials,
@@ -240,11 +275,16 @@ class OptunaExperimentRunner(ExperimentRunner):
                     show_progress_bar=self.verbose,
                 )
 
-                # Log best parameters and result
+                logger.info("Best trial: %s", study.best_trial.number)
+                logger.info(
+                    "Best value for %s: %s", self.optimization_metric, study.best_value
+                )
+                logger.info("Best parameters: %s", study.best_params)
+
                 mlflow.log_params(study.best_params)
                 mlflow.log_metric(f"best_{self.optimization_metric}", study.best_value)
+                mlflow.set_tag("best_trial_number", study.best_trial.number)
         else:
-            # Run the optimization without MLflow
             study.optimize(
                 lambda trial: self._objective(trial, model_class),
                 n_trials=self.n_trials,
@@ -252,18 +292,18 @@ class OptunaExperimentRunner(ExperimentRunner):
                 n_jobs=self.n_jobs,
                 show_progress_bar=self.verbose,
             )
+            logger.info("Best trial: %s", study.best_trial.number)
+            logger.info(
+                "Best value for %s: %s", self.optimization_metric, study.best_value
+            )
+            logger.info("Best parameters: %s", study.best_params)
 
-        # Create best configuration
         best_config = ExperimentConfig.from_trial(
             optuna.trial.FixedTrial(study.best_params), self.experiment_config
         )
 
         if self.verbose:
-            print(f"[{datetime.now()}]: Optimization complete")
-            print(f"[{datetime.now()}]: Best parameters: {study.best_params}")
-            print(
-                f"[{datetime.now()}]: Best {self.optimization_metric}: {study.best_value}"
-            )
+            logger.info("Optimization complete")
 
         return best_config, study.best_value
 
@@ -273,14 +313,19 @@ class OptunaExperimentRunner(ExperimentRunner):
         Args:
             model_class: PyTorch Lightning model class to use
         """
-        # Run optimization to find best parameters
+        if self.verbose:
+            logger.info("Running optimization to find best parameters...")
         best_config, best_value = self.run_optimization(model_class)
 
         if self.verbose:
-            print(f"[{datetime.now()}]: Running final experiment with best parameters")
+            logger.info(
+                "Optimization found best %s: %s", self.optimization_metric, best_value
+            )
+            logger.info("Best config: %s", best_config.to_dict())
+            logger.info("Running final experiment with best parameters...")
 
-        # Update experiment config with best parameters
         self.experiment_config = best_config
 
-        # Run full experiment with best parameters
         super().run_experiment(model_class)
+        if self.verbose:
+            logger.info("Final experiment with best parameters complete.")

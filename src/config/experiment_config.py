@@ -76,7 +76,7 @@ class DataConfig:
     val_annotation_file: str = "./data/aswine/meta/val_aswine_raw_full.csv"
     test_annotation_file: str = "./data/aswine/meta/test_aswine_raw_full.csv"
     sample_rate: int = 16000
-    num_bands: int = 64
+    num_bands: int = 128
     train_mean: float | None = -0.0003
     train_std: float | None = 0.2069
     train_ratio: float = 0.7
@@ -142,7 +142,7 @@ class EvaluationConfig:
     """
 
     pred_threshold: float = 0.5
-    skip_trained_models: bool = True
+    skip_trained_models: bool = False
 
 
 @dataclass
