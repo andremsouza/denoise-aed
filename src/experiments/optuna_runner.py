@@ -66,13 +66,17 @@ class OptunaExperimentRunner(ExperimentRunner):
         self.pruning_callback: PyTorchLightningPruningCallback | None = None
 
     def _objective(
-        self, trial: optuna.Trial, model_class: type[pl.LightningModule]
+        self,
+        trial: optuna.Trial,
+        model_class: type[pl.LightningModule],
+        parent_run_id: str | None = None,
     ) -> float:
         """Objective function for Optuna optimization.
 
         Args:
             trial: Optuna trial
             model_class: PyTorch Lightning model class to optimize
+            parent_run_id: Parent MLflow run ID for nested runs (optional)
 
         Returns:
             Value of the optimization metric
@@ -151,6 +155,9 @@ class OptunaExperimentRunner(ExperimentRunner):
                 enable_progress_bar=self.verbose,
             )
 
+            # Setup MLflow tracking
+            self._setup_mlflow_tracking()
+
             # Run training
             try:
                 if self.experiment_config.infrastructure.use_mlflow:
@@ -158,6 +165,8 @@ class OptunaExperimentRunner(ExperimentRunner):
                         run_name=f"{trial_experiment_name}",
                         tags={"owner": "André Moreira Souza"},
                         log_system_metrics=self.experiment_config.infrastructure.mlflow_log_system_metrics,
+                        nested=True,
+                        parent_run_id=parent_run_id,
                     ):
                         mlflow.log_param("run_name", trial_experiment_name)
                         mlflow.log_params(self.experiment_config.to_dict(flat=True))
@@ -247,7 +256,7 @@ class OptunaExperimentRunner(ExperimentRunner):
                 seed=self.experiment_config.training.random_seed
             ),
             pruner=optuna.pruners.MedianPruner(
-                n_startup_trials=5, n_warmup_steps=0, interval_steps=1
+                n_startup_trials=5, n_warmup_steps=2, interval_steps=1
             ),
         )
 
@@ -267,8 +276,13 @@ class OptunaExperimentRunner(ExperimentRunner):
                 mlflow.log_param("study_name", study.study_name)
                 mlflow.log_param("model_class", model_class.__name__)
 
+                run_id = mlflow.active_run().info.run_id
+                logger.info("MLflow run ID: %s", run_id)
+
                 study.optimize(
-                    lambda trial: self._objective(trial, model_class),
+                    lambda trial: self._objective(
+                        trial, model_class, parent_run_id=run_id
+                    ),
                     n_trials=self.n_trials,
                     timeout=self.timeout,
                     n_jobs=self.n_jobs,

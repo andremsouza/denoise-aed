@@ -8,7 +8,6 @@ import mlflow.pytorch
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import Logger, CSVLogger, TensorBoardLogger
-import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import torch
