@@ -1,3 +1,5 @@
+"""Base experiment runner and utility functions for training and evaluation."""
+
 from datetime import datetime
 import os
 from typing import Callable
@@ -8,8 +10,8 @@ import mlflow.pytorch
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import Logger, CSVLogger, TensorBoardLogger
-import pandas as pd
-from sklearn.model_selection import train_test_split
+import pandas as pd  # type: ignore
+from sklearn.model_selection import train_test_split  # type: ignore
 import torch
 from torch.utils.data import DataLoader
 
@@ -324,9 +326,15 @@ class ExperimentRunner(object):
             checkpoint=self.experiment_config.infrastructure.mlflow_checkpoint,
             checkpoint_monitor=self.experiment_config.infrastructure.mlflow_checkpoint_monitor,
             checkpoint_mode=self.experiment_config.infrastructure.mlflow_checkpoint_mode,
-            checkpoint_save_best_only=self.experiment_config.infrastructure.mlflow_checkpoint_save_best_only,
-            checkpoint_save_weights_only=self.experiment_config.infrastructure.mlflow_checkpoint_save_weights_only,
-            checkpoint_save_freq=self.experiment_config.infrastructure.mlflow_checkpoint_save_freq,
+            checkpoint_save_best_only=(
+                self.experiment_config.infrastructure.mlflow_checkpoint_save_best_only
+            ),
+            checkpoint_save_weights_only=(
+                self.experiment_config.infrastructure.mlflow_checkpoint_save_weights_only
+            ),
+            checkpoint_save_freq=(
+                self.experiment_config.infrastructure.mlflow_checkpoint_save_freq
+            ),
         )
 
     @staticmethod
@@ -363,6 +371,79 @@ class ExperimentRunner(object):
             f"{self.experiment_config.data.num_bands}-bands"
         )
 
+    def _prepare_model(
+        self, model_class: type[pl.LightningModule], run_name: str
+    ) -> pl.LightningModule | None:
+        """Prepare model, either by creating a new one or loading from checkpoint.
+
+        Args:
+            model_class: The PyTorch Lightning model class to use.
+            run_name: Name of the current run.
+
+        Returns:
+            The prepared model, or None if training should be skipped.
+        """
+        model = self._create_model(model_class)
+
+        if (
+            self.experiment_config.training.use_pretrained
+            or self.experiment_config.evaluation.skip_trained_models
+        ):
+            checkpoint_file = self._find_checkpoint(run_name)
+            if checkpoint_file is not None:
+                if self.verbose:
+                    logger.info("Found checkpoint %s", checkpoint_file)
+
+                if self.experiment_config.evaluation.skip_trained_models:
+                    if self.verbose:
+                        logger.info("Skipping %s", run_name)
+                    # Indicate skipping
+                    return None
+
+                model = self._load_checkpoint(model_class, checkpoint_file)
+        return model
+
+    def _train_model(
+        self,
+        model: pl.LightningModule,
+        run_name: str,
+        train_dataloader: DataLoader,
+        test_dataloader: DataLoader,
+    ) -> None:
+        """Train the model with the given data.
+
+        Args:
+            model: The model to train.
+            run_name: Name of the current run.
+            train_dataloader: DataLoader for training data.
+            test_dataloader: DataLoader for test/validation data.
+        """
+        trainer_loggers = self._setup_loggers(run_name)
+        callbacks = self._setup_callbacks(run_name)
+
+        trainer: pl.Trainer = pl.Trainer(
+            callbacks=callbacks,
+            max_epochs=self.experiment_config.training.max_epochs,
+            logger=trainer_loggers,
+            log_every_n_steps=min(50, len(train_dataloader)),
+        )
+
+        self._setup_mlflow_tracking()
+
+        if self.experiment_config.infrastructure.use_mlflow:
+            with mlflow.start_run(
+                run_name=f"{run_name}_{datetime.now()}",
+                tags={"owner": "André Moreira Souza"},
+                log_system_metrics=(
+                    self.experiment_config.infrastructure.mlflow_log_system_metrics
+                ),
+            ):
+                mlflow.log_param("experiment_name", run_name)
+                mlflow.log_params(self.experiment_config.to_dict(flat=True))
+                trainer.fit(model, train_dataloader, test_dataloader)
+        else:
+            trainer.fit(model, train_dataloader, test_dataloader)
+
     def run_experiment(self, model_class: type[pl.LightningModule]) -> None:
         """Run the experiment with the given model class.
 
@@ -396,56 +477,15 @@ class ExperimentRunner(object):
         if self.verbose:
             logger.info("Training %s", run_name)
 
-        # Create model or load from checkpoint
-        model = self._create_model(model_class)
+        # Prepare model (create or load)
+        model = self._prepare_model(model_class, run_name)
 
-        # Check for existing checkpoint
-        if (
-            self.experiment_config.training.use_pretrained
-            or self.experiment_config.evaluation.skip_trained_models
-        ):
-            checkpoint_file = self._find_checkpoint(run_name)
-            if checkpoint_file is not None:
-                if self.verbose:
-                    logger.info("Found checkpoint %s", checkpoint_file)
-
-                if self.experiment_config.evaluation.skip_trained_models:
-                    if self.verbose:
-                        logger.info("Skipping %s", run_name)
-                    return
-
-                # Load model from checkpoint
-                model = self._load_checkpoint(model_class, checkpoint_file)
-
-        # Set up loggers and callbacks
-        trainer_loggers = self._setup_loggers(run_name)
-        callbacks = self._setup_callbacks(run_name)
+        if model is None:
+            # Model preparation indicated skipping
+            return
 
         # Train the model
-
-        # Set up trainer
-        trainer: pl.Trainer = pl.Trainer(
-            callbacks=callbacks,
-            max_epochs=self.experiment_config.training.max_epochs,
-            logger=trainer_loggers,
-            log_every_n_steps=min(50, len(train_dataloader)),
-        )
-
-        # Setup MLflow tracking
-        self._setup_mlflow_tracking()
-
-        # Run training
-        if self.experiment_config.infrastructure.use_mlflow:
-            with mlflow.start_run(
-                run_name=f"{run_name}_{datetime.now()}",
-                tags={"owner": "André Moreira Souza"},
-                log_system_metrics=self.experiment_config.infrastructure.mlflow_log_system_metrics,
-            ):
-                mlflow.log_param("experiment_name", run_name)
-                mlflow.log_params(self.experiment_config.to_dict(flat=True))
-                trainer.fit(model, train_dataloader, test_dataloader)
-        else:
-            trainer.fit(model, train_dataloader, test_dataloader)
+        self._train_model(model, run_name, train_dataloader, test_dataloader)
 
         if self.verbose:
             logger.info("Finished training %s", run_name)

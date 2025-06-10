@@ -322,13 +322,18 @@ class BaseAudioLightningModule(pl.LightningModule):
 
         try:
             checkpoint = torch.load(checkpoint_path)
+            # Assuming self.model is intended to be an nn.Module
+            assert isinstance(
+                self.model, torch.nn.Module
+            ), "self.model is not an nn.Module instance"
             if "state_dict" in checkpoint:
                 self.model.load_state_dict(checkpoint["state_dict"])
             else:
                 self.model.load_state_dict(checkpoint)
-            self.log("info", f"Successfully loaded checkpoint from {checkpoint_path}")
-        except (FileNotFoundError, torch.serialization.pickle.UnpicklingError) as e:
-            self.log("warning", f"Failed to load checkpoint: {str(e)}")
+            self.print(f"Successfully loaded checkpoint from {checkpoint_path}")
+        # pylint: disable=W0718
+        except Exception as e:
+            self.print(f"WARNING: Failed to load checkpoint: {str(e)}")
 
     def on_train_epoch_end(self) -> None:
         """Actions to perform at the end of each training epoch.

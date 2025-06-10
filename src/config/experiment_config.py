@@ -5,7 +5,6 @@ This module contains the dataclass-based configuration system for experiments.
 
 from dataclasses import dataclass, field, asdict
 import os
-from typing import Any
 from urllib.parse import quote_plus
 
 import dotenv
@@ -146,7 +145,7 @@ class EvaluationConfig:
 
 
 @dataclass
-class ExperimentConfig(object):
+class ExperimentConfig:
     """Complete experiment configuration.
 
     This combines all configuration components into a single dataclass.
@@ -215,7 +214,9 @@ class ExperimentConfig(object):
             return flat_dict
 
     @classmethod
-    def from_trial(cls, trial: optuna.Trial, base_config=None):
+    def from_trial(
+        cls, trial: optuna.Trial | optuna.trial.FrozenTrial, base_config=None
+    ):
         """Create a configuration from an Optuna trial.
 
         Args:
@@ -250,8 +251,8 @@ class ExperimentConfig(object):
             config.model.weight_decay = config.training.weight_decay
 
             # AST-specific parameters
-            if hasattr(config.model, "fstride") and hasattr(config.model, "tstride"):
-                config.model.fstride = trial.suggest_int("fstride", 10, 10)
-                config.model.tstride = trial.suggest_int("tstride", 10, 10)
+            # if hasattr(config.model, "fstride") and hasattr(config.model, "tstride"):
+            #     config.model.fstride = trial.suggest_int("fstride", 10, 10)
+            #     config.model.tstride = trial.suggest_int("tstride", 10, 10)
 
         return config
