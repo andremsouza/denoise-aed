@@ -90,16 +90,18 @@ class OptunaExperimentRunner(ExperimentRunner):
         self,
         trial_config: ExperimentConfig,
         model_class: type[pl.LightningModule],
+        denoiser_class: type[pl.LightningModule],
         trial_experiment_name: str,
-    ) -> tuple[pl.LightningModule, list[PlLogger]]:
+    ) -> tuple[pl.LightningModule, pl.LightningModule, list[PlLogger]]:
         """Create model and loggers for a trial."""
         original_config = self.experiment_config
         self.experiment_config = trial_config
         model = self._create_model(model_class)
+        denoiser = self._create_denoiser(denoiser_class)
         self.experiment_config = original_config
 
         exp_loggers = self._setup_loggers(trial_experiment_name)
-        return model, exp_loggers
+        return model, denoiser, exp_loggers
 
     def _setup_trial_callbacks(
         self,
@@ -152,6 +154,7 @@ class OptunaExperimentRunner(ExperimentRunner):
         self,
         trial: optuna.Trial,
         model_class: type[pl.LightningModule],
+        denoiser_class: type[pl.LightningModule],
         parent_run_id: str | None = None,
     ) -> float:
         """Objective function for Optuna optimization.
@@ -170,6 +173,7 @@ class OptunaExperimentRunner(ExperimentRunner):
             logger.info("Trial %s - Testing parameters: %s", trial.number, trial.params)
 
         model: pl.LightningModule | None = None
+        denoiser: pl.LightningModule | None = None
         train_dataloader: DataLoader | None = None
         test_dataloader: DataLoader | None = None
         trainer: pl.Trainer | None = None
@@ -179,13 +183,19 @@ class OptunaExperimentRunner(ExperimentRunner):
                 self._setup_trial_dataloaders(trial_config)
             )
 
+            denoiser = self._create_denoiser(denoiser_class)
+            train_dataloader.dataset.transform = denoiser
+            test_dataloader.dataset.transform = denoiser
+
             run_name = self._create_run_name_name(
-                model_class=model_class.__name__, dataset_type=dataset_type
+                model_class=model_class.__name__,
+                denoiser_class=denoiser_class.__name__,
+                dataset_type=dataset_type
             )
             trial_experiment_name = f"{run_name}_trial{trial.number}"
 
-            model, exp_loggers = self._setup_trial_model_and_loggers(
-                trial_config, model_class, trial_experiment_name
+            model, denoiser, exp_loggers = self._setup_trial_model_and_loggers(
+                trial_config, model_class, denoiser_class, trial_experiment_name
             )
 
             callbacks = self._setup_trial_callbacks(
@@ -266,7 +276,7 @@ class OptunaExperimentRunner(ExperimentRunner):
             raise e
 
     def run_optimization(
-        self, model_class: type[pl.LightningModule]
+        self, model_class: type[pl.LightningModule], denoiser_class: type[pl.LightningModule]
     ) -> tuple[ExperimentConfig, float]:
         """Runs the Optuna hyperparameter optimization study.
 
@@ -316,7 +326,7 @@ class OptunaExperimentRunner(ExperimentRunner):
 
         if self.experiment_config.infrastructure.use_mlflow:
             opt_run_name = (
-                f"{self.experiment_prefix}_{model_class.__name__}"
+                f"{self.experiment_prefix}_{model_class.__name__}_{denoiser_class.__name__}"
                 f"_opt_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             )
             with mlflow.start_run(
@@ -328,6 +338,7 @@ class OptunaExperimentRunner(ExperimentRunner):
                 mlflow.log_param("direction", self.direction)
                 mlflow.log_param("study_name", study.study_name)
                 mlflow.log_param("model_class", model_class.__name__)
+                mlflow.log_param("denoiser_class", denoiser_class.__name__)
 
                 run_id = None
                 active_run = mlflow.active_run()
@@ -341,7 +352,7 @@ class OptunaExperimentRunner(ExperimentRunner):
 
                 study.optimize(
                     lambda trial: self._objective(
-                        trial, model_class, parent_run_id=run_id
+                        trial, model_class, denoiser_class, parent_run_id=run_id
                     ),
                     n_trials=self.n_trials,
                     timeout=self.timeout,
@@ -360,7 +371,7 @@ class OptunaExperimentRunner(ExperimentRunner):
                 mlflow.set_tag("best_trial_number", study.best_trial.number)
         else:
             study.optimize(
-                lambda trial: self._objective(trial, model_class),
+                lambda trial: self._objective(trial, model_class, denoiser_class),
                 n_trials=self.n_trials,
                 timeout=self.timeout,
                 n_jobs=self.n_jobs,
@@ -381,7 +392,7 @@ class OptunaExperimentRunner(ExperimentRunner):
 
         return best_config, study.best_value
 
-    def run_with_best_params(self, model_class: type[pl.LightningModule]) -> None:
+    def run_with_best_params(self, model_class: type[pl.LightningModule], denoiser_class: type[pl.LightningModule]) -> None:
         """Runs hyperparameter optimization to find the best parameters and then
         executes a final experiment using these optimal parameters.
 
@@ -403,7 +414,7 @@ class OptunaExperimentRunner(ExperimentRunner):
         """
         if self.verbose:
             logger.info("Running optimization to find best parameters...")
-        best_config, best_value = self.run_optimization(model_class)
+        best_config, best_value = self.run_optimization(model_class, denoiser_class)
 
         if self.verbose:
             logger.info(
@@ -414,6 +425,6 @@ class OptunaExperimentRunner(ExperimentRunner):
 
         self.experiment_config = best_config
 
-        super().run_experiment(model_class)
+        super().run_experiment(model_class, denoiser_class)
         if self.verbose:
             logger.info("Final experiment with best parameters complete.")

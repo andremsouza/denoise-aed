@@ -8,45 +8,29 @@ from typing import (
 import lightning.pytorch as pl
 import torch
 import torch.nn.functional as F
+
 from torchmetrics.audio import (
     SignalNoiseRatio,
     SignalDistortionRatio,
     ShortTimeObjectiveIntelligibility
 )
 
+from src.config.denoiser_config import DenoiserConfig
+
 class BaseDenoiserLightningModule(pl.LightningModule):
-    def __init__(
-        self,
-        learning_rate: float = 1e-4,
-        weight_decay: float = 1e-2,
-        lr_scheduler_patience: int = 5,
-        process_variance: float = 1e-5,
-        initial_measurement_noise: float = 1e-4,
-        adaptation_interval: int = 100,
-        window_size: int = 1024, 
-        hop_size: int = 512,
-        noise_reduction_factor: float = 1.0,
-        noise_window_duration: float = 0.1,
-        sample_rate: int = 16000,
-        alpha: float = 0.95,
-        beta: float = 0.98,
-        adaptive: bool = True
-    ) -> None:
+    def __init__(self, config = DenoiserConfig) -> None:
         super().__init__()
-        self.learning_rate = learning_rate
-        self.weight_decay = weight_decay
-        self.lr_scheduler_patience = lr_scheduler_patience
-        self.sample_rate = sample_rate
-        self.process_variance = process_variance
-        self.initial_measurement_noise = initial_measurement_noise
-        self.adaptation_interval = adaptation_interval
-        self.window_size = window_size
-        self.hop_size = hop_size
-        self.alpha = alpha
-        self.beta = beta
-        self.adaptive = adaptive
-        self.noise_reduction_factor = noise_reduction_factor
-        self.noise_window_duration = noise_window_duration
+        self.sample_rate = config.sample_rate
+        self.process_variance = config.process_variance
+        self.initial_measurement_noise = config.initial_measurement_noise
+        self.adaptation_interval = config.adaptation_interval
+        self.window_size = config.window_size
+        self.hop_size = config.hop_size
+        self.alpha = config.alpha
+        self.beta = config.beta
+        self.adaptive = config.adaptive
+        self.noise_reduction_factor = config.noise_reduction_factor
+        self.noise_window_duration = config.noise_window_duration
 
         # Metrics will be initialized in child classes after model creation
         self.metrics: dict[str, dict[str, Any]] = {}
@@ -204,88 +188,3 @@ class BaseDenoiserLightningModule(pl.LightningModule):
         inputs = batch[0]
         outputs = self(inputs)
         return outputs
-
-    def configure_optimizers(self) -> Any:
-        """Configure optimizers.
-
-        Returns:
-            Optimizer and scheduler configuration
-        """
-        optimizer = torch.optim.AdamW(
-            self.parameters(),
-            lr=self.learning_rate,
-            betas=(0.9, 0.999),
-            weight_decay=self.weight_decay,
-        )
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode="min",
-            factor=0.1,
-            patience=self.lr_scheduler_patience,
-            threshold=0.0001,
-            threshold_mode="rel",
-            cooldown=0,
-            min_lr=0,
-            eps=1e-08,
-        )
-        return [optimizer], [
-            {"scheduler": scheduler, "interval": "epoch", "monitor": "val_loss"}
-        ]
-
-    def _load_checkpoint(self, checkpoint_path: str | None = None) -> None:
-        """Load checkpoint if provided.
-
-        Args:
-            checkpoint_path: Path to checkpoint
-        """
-        if not checkpoint_path:
-            return
-
-        try:
-            checkpoint = torch.load(checkpoint_path)
-            # Assuming self.model is intended to be an nn.Module
-            assert isinstance(
-                self.model, torch.nn.Module
-            ), "self.model is not an nn.Module instance"
-            if "state_dict" in checkpoint:
-                self.model.load_state_dict(checkpoint["state_dict"])
-            else:
-                self.model.load_state_dict(checkpoint)
-            self.print(f"Successfully loaded checkpoint from {checkpoint_path}")
-        # pylint: disable=W0718
-        except Exception as e:
-            self.print(f"WARNING: Failed to load checkpoint: {str(e)}")
-
-    def on_train_epoch_end(self) -> None:
-        """Actions to perform at the end of each training epoch.
-        This method resets the metrics for the next epoch.
-        """
-        for metric in self.metrics["train"].values():
-            metric.reset()
-        torch.cuda.empty_cache()
-        super().on_train_epoch_end()
-
-    def on_validation_epoch_end(self) -> None:
-        """Actions to perform at the end of each validation epoch.
-        This method resets the metrics for the next epoch.
-        """
-        for metric in self.metrics["val"].values():
-            metric.reset()
-        torch.cuda.empty_cache()
-        super().on_validation_epoch_end()
-
-    def on_test_epoch_end(self) -> None:
-        """Actions to perform at the end of each test epoch.
-        This method resets the metrics for the next epoch.
-        """
-        for metric in self.metrics["test"].values():
-            metric.reset()
-        torch.cuda.empty_cache()
-        super().on_test_epoch_end()
-
-    def on_predict_epoch_end(self) -> None:
-        """Actions to perform at the end of each prediction epoch.
-        This method resets the metrics for the next epoch.
-        """
-        torch.cuda.empty_cache()
-        super().on_predict_epoch_end()

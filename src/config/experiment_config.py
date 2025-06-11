@@ -12,6 +12,7 @@ import optuna
 import torch
 
 from src.config.model_config import AudioModelConfig
+from src.config.denoiser_config import DenoiserConfig
 
 dotenv.load_dotenv(override=True)
 
@@ -70,10 +71,10 @@ class DataConfig:
     """
 
     data_directory: str = "./data/aswine/audio/"
-    annotation_file: str = "./data/aswine/meta/aswine_raw_full.csv"
-    train_annotation_file: str = "./data/aswine/meta/train_aswine_raw_full.csv"
-    val_annotation_file: str = "./data/aswine/meta/val_aswine_raw_full.csv"
-    test_annotation_file: str = "./data/aswine/meta/test_aswine_raw_full.csv"
+    annotation_file: str = "./data/aswine/meta/raw/aswine_raw_full.csv"
+    train_annotation_file: str = "./data/aswine/meta/raw/aswine_raw_train.csv"
+    val_annotation_file: str = "./data/aswine/meta/raw/aswine_raw_test.csv"
+    test_annotation_file: str = "./data/aswine/meta/aswine_raw_test.csv"
     sample_rate: int = 16000
     num_bands: int = 64
     train_mean: float | None = -0.0003
@@ -161,6 +162,7 @@ class ExperimentConfig:
     infrastructure: InfrastructureConfig = field(default_factory=InfrastructureConfig)
     data: DataConfig = field(default_factory=DataConfig)
     model: AudioModelConfig = field(default_factory=AudioModelConfig)
+    denoiser: DenoiserConfig = field(default_factory=DenoiserConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     annotation: AnnotationConfig = field(default_factory=AnnotationConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
@@ -187,6 +189,7 @@ class ExperimentConfig:
                 "infrastructure": asdict(self.infrastructure),
                 "data": asdict(self.data),
                 "model": asdict(self.model),
+                "denoiser": asdict(self.denoiser),
                 "training": asdict(self.training),
                 "annotation": asdict(self.annotation),
                 "evaluation": asdict(self.evaluation),
@@ -200,6 +203,7 @@ class ExperimentConfig:
                 ("infrastructure", self.infrastructure),
                 ("data", self.data),
                 ("model", self.model),
+                ("denoiser", self.denoiser),
                 ("training", self.training),
                 ("annotation", self.annotation),
                 ("evaluation", self.evaluation),

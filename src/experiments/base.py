@@ -223,6 +223,19 @@ class ExperimentRunner(object):
         """
         return model_class(self.experiment_config.model)
 
+    def _create_denoiser(
+        self, denoiser_class: type[pl.LightningModule]
+    ) -> pl.LightningModule:
+        """Create a model of the specified class from the configuration.
+
+        Args:
+            model_class: The PyTorch Lightning model class to instantiate
+
+        Returns:
+            Instantiated model
+        """
+        return denoiser_class(self.experiment_config.denoiser)
+
     def _load_checkpoint(
         self, model_class: type[pl.LightningModule], checkpoint_file: str
     ) -> pl.LightningModule:
@@ -355,7 +368,7 @@ class ExperimentRunner(object):
         }
         return dataset_type_map.get(dataset_type, "unknown")
 
-    def _create_run_name_name(self, model_class: str, dataset_type: str) -> str:
+    def _create_run_name_name(self, model_class: str, denoiser_class: str, dataset_type: str) -> str:
         """Create an experiment name based on configuration and dataset type.
 
         Args:
@@ -367,6 +380,7 @@ class ExperimentRunner(object):
         return (
             f"{self.experiment_prefix}_"
             f"{model_class}_"
+            f"{denoiser_class}_"
             f"{dataset_type}_{self.experiment_config.annotation.num_classes}-classes_"
             f"{self.experiment_config.data.num_bands}-bands"
         )
@@ -444,7 +458,7 @@ class ExperimentRunner(object):
         else:
             trainer.fit(model, train_dataloader, test_dataloader)
 
-    def run_experiment(self, model_class: type[pl.LightningModule]) -> None:
+    def run_experiment(self, model_class: type[pl.LightningModule], denoiser_class: type[pl.LightningModule]) -> None:
         """Run the experiment with the given model class.
 
         Args:
@@ -463,6 +477,10 @@ class ExperimentRunner(object):
             verbose=self.verbose,
         )
 
+        denoiser = self._create_denoiser(denoiser_class)
+        train_dataloader.dataset.transform = denoiser
+        test_dataloader.dataset.transform = denoiser
+
         # Get input shape
         input_shape = next(iter(train_dataloader))[0].shape
         if self.verbose:
@@ -471,7 +489,9 @@ class ExperimentRunner(object):
         # Get dataset type and create experiment name
         dataset_type = self._get_dataset_type(train_dataloader)
         run_name = self._create_run_name_name(
-            model_class=model_class.__name__, dataset_type=dataset_type
+            model_class=model_class.__name__, 
+            denoiser_class=denoiser_class.__name__, 
+            dataset_type=dataset_type
         )
 
         if self.verbose:

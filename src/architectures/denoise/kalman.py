@@ -1,6 +1,6 @@
 import torch
 
-from BaseDenoiserLightningModule import BaseDenoiserLightningModule
+from src.architectures.denoise.BaseDenoiserLightningModule import BaseDenoiserLightningModule
 
 class AdaptiveKalman(BaseDenoiserLightningModule):
     def __init__(self, *args, **kwargs):

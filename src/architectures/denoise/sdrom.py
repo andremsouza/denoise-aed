@@ -2,7 +2,8 @@ import torch
 import math as m
 from torchlibrosa.stft import STFT, ISTFT
 
-from BaseDenoiserLightningModule import BaseDenoiserLightningModule
+from src.architectures.denoise.BaseDenoiserLightningModule import BaseDenoiserLightningModule
+
 
 class SDROM(BaseDenoiserLightningModule):
     def __init__(self, *args, **kwargs):

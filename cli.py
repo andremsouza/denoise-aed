@@ -22,6 +22,8 @@ from src.experiments.optuna_runner import OptunaExperimentRunner
 from src.config.experiment_config import ExperimentConfig
 from src.factories.model_config_factory import create_model_config
 
+from src.architectures.denoise import kalman, sdrom, spectral_subtraction, identity
+
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)s]: %(message)s",
@@ -29,8 +31,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-MODELS = {
+MODELS_REGISTRY = {
     "ast": PLAST,
     "cnn14": PLCnn14,
     "dainet19": PLDaiNet19,
@@ -40,6 +41,12 @@ MODELS = {
     "resnet38": PLResNet38,
 }
 
+DENOISE_REGISTRY: dict[str, type] = {
+  "kalman": kalman.AdaptiveKalman,
+  "sdrom": sdrom.SDROM,
+  "spectral_substraction": spectral_subtraction.SpectralSubtraction,
+  "identity": identity.IdentityDenoiser,
+}
 
 def main() -> None:
     """Parse command-line arguments and run the experiment."""
@@ -57,6 +64,19 @@ def main() -> None:
     experiment_config.data.annotation_file = args.annotation_file
     experiment_config.data.sample_rate = args.sample_rate
     experiment_config.data.num_bands = args.num_bands
+
+    # Update denoiser config
+    experiment_config.denoiser.process_variance = args.process_variance
+    experiment_config.denoiser.initial_measurement_noise = args.initial_measurement_noise
+    experiment_config.denoiser.adaptation_interval = args.adaptation_interval
+    experiment_config.denoiser.window_size = args.denoiser_window_size
+    experiment_config.denoiser.hop_size = args.denoiser_hop_size
+    experiment_config.denoiser.noise_reduction_factor = args.noise_reduction_factor
+    experiment_config.denoiser.noise_window_duration = args.noise_window_duration
+    experiment_config.denoiser.alpha = args.alpha
+    experiment_config.denoiser.beta = args.beta
+    experiment_config.denoiser.adaptive = args.adaptive
+    experiment_config.denoiser.sample_rate = args.sample_rate
 
     # Update training config
     experiment_config.training.batch_size = args.batch_size
@@ -98,7 +118,7 @@ def main() -> None:
     torch.set_float32_matmul_precision("high")
 
     # Run the experiment
-    experiment_prefix: str = "intrinsic_dimension"
+    experiment_prefix: str = "denoising_experiments"
     logger.info("Starting experiment with prefix: %s", experiment_prefix)
     logger.info("Using model type: %s", args.model_type)
     logger.info("Arguments: %s", args)
@@ -124,12 +144,14 @@ def main() -> None:
             if args.optimize_only:
                 # Just run optimization
                 optuna_experiment_runner.run_optimization(
-                    model_class=MODELS[args.model_type]
+                    model_class=MODELS_REGISTRY[args.model_type],
+                    denoiser_class=DENOISE_REGISTRY[args.denoiser]
                 )
             else:
                 # Run optimization and then final experiment
                 optuna_experiment_runner.run_with_best_params(
-                    model_class=MODELS[args.model_type]
+                    model_class=MODELS_REGISTRY[args.model_type],
+                    denoiser_class=DENOISE_REGISTRY[args.denoiser]
                 )
         else:
             # Create regular ExperimentRunner
@@ -139,7 +161,8 @@ def main() -> None:
                 verbose=True,
             )
             regular_experiment_runner.run_experiment(
-                model_class=MODELS[args.model_type]
+                model_class=MODELS_REGISTRY[args.model_type],
+                denoiser_class=DENOISE_REGISTRY[args.denoiser]
             )
     except KeyError:
         logger.error("Model type %s not supported yet.", args.model_type)
@@ -201,6 +224,76 @@ def _add_data_args(
         help="Number of frequency bands",
     )
 
+def _add_denoising_args(
+    parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
+) -> None:
+    denoising_args = parser.add_argument_group("Denoiser Arguments")
+    denoising_args.add_argument(
+        "--denoiser",
+        type=str,
+        default="identity",
+        help="Type of denoiser to use (default: identity)",
+    )
+    denoising_args.add_argument(
+        "--process-variance",
+        type=float,
+        default=experiment_config.denoiser.process_variance,
+        help="Process variance for the denoiser (default: 1e-5)",
+    )
+    denoising_args.add_argument(
+        "--initial-measurement-noise",
+        type=float,
+        default=experiment_config.denoiser.initial_measurement_noise,
+        help="Initial measurement noise for the denoiser (default: 1e-4)",
+    )
+    denoising_args.add_argument(
+        "--adaptation-interval",
+        type=int,
+        default=experiment_config.denoiser.adaptation_interval,
+        help="Adaptation interval for the denoiser (default: 100)",
+    )
+    denoising_args.add_argument(
+        "--denoiser-window-size",
+        type=int,
+        default=experiment_config.denoiser.window_size,
+        help="Window size for the denoiser (default: 1024)",
+    )
+    denoising_args.add_argument(
+        "--denoiser-hop-size",
+        type=int,
+        default=experiment_config.denoiser.hop_size,
+        help="Hop size for the denoiser (default: 512)",
+    )
+    denoising_args.add_argument(
+        "--noise-reduction-factor",
+        type=float,
+        default=experiment_config.denoiser.noise_reduction_factor,
+        help="Noise reduction factor for the denoiser (default: 1.0)",
+    )
+    denoising_args.add_argument(
+        "--noise-window-duration",
+        type=float,
+        default=experiment_config.denoiser.noise_window_duration,
+        help="Noise window duration for the denoiser in seconds (default: 0.1)",
+    )
+    denoising_args.add_argument(
+        "--alpha",
+        type=float,
+        default=experiment_config.denoiser.alpha,
+        help="Alpha parameter for the denoiser (default: 0.95)",
+    )
+    denoising_args.add_argument(
+        "--beta",
+        type=float,
+        default=experiment_config.denoiser.beta,
+        help="Beta parameter for the denoiser (default: 0.98)",
+    )
+    denoising_args.add_argument(
+        "--adaptive",
+        action=argparse.BooleanOptionalAction,
+        default=experiment_config.denoiser.adaptive,
+        help="Enable adaptive mode for the denoiser (default: True)",
+    )
 
 def _add_training_args(
     parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
@@ -483,6 +576,7 @@ def parse_args(experiment_config: ExperimentConfig) -> argparse.Namespace:
     _add_infrastructure_args(parser, experiment_config)
     _add_data_args(parser, experiment_config)
     _add_training_args(parser, experiment_config)
+    _add_denoising_args(parser, experiment_config)
     _add_annotation_args(parser, experiment_config)
     _add_evaluation_args(parser, experiment_config)
     _add_model_args(parser)

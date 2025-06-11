@@ -1,8 +1,7 @@
 from torchlibrosa.stft import STFT, ISTFT
-import numpy as np
 import torch
 
-from BaseDenoiserLightningModule import BaseDenoiserLightningModule
+from src.architectures.denoise.BaseDenoiserLightningModule import BaseDenoiserLightningModule
 
 class SpectralSubtraction(BaseDenoiserLightningModule):
     def __init__(self, *args, **kwargs):
