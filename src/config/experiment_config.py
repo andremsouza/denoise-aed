@@ -248,15 +248,36 @@ class ExperimentConfig:
         config.training.weight_decay = trial.suggest_float(
             "weight_decay", 1e-6, 1e-2, log=True
         )
+        config.denoiser.process_variance = trial.suggest_float(
+            "denoise_process_variance", 1e-6, 1e-2, log=True
+        )
+        config.denoiser.initial_measurement_noise = trial.suggest_float(
+            "denoise_initial_measurement_noise", 1e-6, 1e-2, log=True
+        )
+        config.denoiser.adaptation_interval = trial.suggest_int(
+            "denoise_adaptation_interval", 1, 1000
+        )
+        config.denoiser.window_size = trial.suggest_int(
+            "denoise_window_size", 256, 4096, log=True
+        )
+        config.denoiser.hop_size = trial.suggest_int(
+            "denoise_hop_size", 128, 2048, log=True
+        )
+        config.denoiser.noise_reduction_factor = trial.suggest_float(
+            "denoise_noise_reduction_factor", 0.0, 1.0
+        )
+        config.denoiser.noise_window_duration = trial.suggest_float(
+            "denoise_noise_window_duration", 0.0, 1.0
+        )
+        config.denoiser.alpha = trial.suggest_float("denoise_alpha", 0.0, 1.0)
+        config.denoiser.beta = trial.suggest_float("denoise_beta", 0.0, 1.0)
+        config.denoiser.adaptive = trial.suggest_categorical(
+            "denoise_adaptive", [True, False]
+        )
 
         # Model-specific parameters
         if isinstance(config.model, AudioModelConfig):
             config.model.learning_rate = config.training.learning_rate
             config.model.weight_decay = config.training.weight_decay
-
-            # AST-specific parameters
-            # if hasattr(config.model, "fstride") and hasattr(config.model, "tstride"):
-            #     config.model.fstride = trial.suggest_int("fstride", 10, 10)
-            #     config.model.tstride = trial.suggest_int("tstride", 10, 10)
 
         return config

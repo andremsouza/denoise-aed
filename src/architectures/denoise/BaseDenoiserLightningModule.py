@@ -12,13 +12,14 @@ import torch.nn.functional as F
 from torchmetrics.audio import (
     SignalNoiseRatio,
     SignalDistortionRatio,
-    ShortTimeObjectiveIntelligibility
+    ShortTimeObjectiveIntelligibility,
 )
 
 from src.config.denoiser_config import DenoiserConfig
 
+
 class BaseDenoiserLightningModule(pl.LightningModule):
-    def __init__(self, config = DenoiserConfig) -> None:
+    def __init__(self, config: DenoiserConfig) -> None:
         super().__init__()
         self.sample_rate = config.sample_rate
         self.process_variance = config.process_variance
@@ -47,8 +48,8 @@ class BaseDenoiserLightningModule(pl.LightningModule):
         metrics = {
             f"{prefix}_snr": SignalNoiseRatio(),
             f"{prefix}_stoi": ShortTimeObjectiveIntelligibility(
-                self.sample_rate,
-                extended=True),
+                self.sample_rate, extended=True
+            ),
             f"{prefix}_sdr": SignalDistortionRatio(load_diag=1e-6),
         }
         return metrics
@@ -80,10 +81,7 @@ class BaseDenoiserLightningModule(pl.LightningModule):
                 prog_bar=True,
             )
         self.log_dict(
-            {
-                k: v.compute()
-                for k, v in self.metrics[stage].items()
-            },
+            {k: v.compute() for k, v in self.metrics[stage].items()},
             prog_bar=True,
         )
 

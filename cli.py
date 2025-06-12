@@ -42,11 +42,12 @@ MODELS_REGISTRY = {
 }
 
 DENOISE_REGISTRY: dict[str, type] = {
-  "kalman": kalman.AdaptiveKalman,
-  "sdrom": sdrom.SDROM,
-  "spectral_substraction": spectral_subtraction.SpectralSubtraction,
-  "identity": identity.IdentityDenoiser,
+    "kalman": kalman.AdaptiveKalman,
+    "sdrom": sdrom.SDROM,
+    "spectral_substraction": spectral_subtraction.SpectralSubtraction,
+    "identity": identity.IdentityDenoiser,
 }
+
 
 def main() -> None:
     """Parse command-line arguments and run the experiment."""
@@ -67,7 +68,9 @@ def main() -> None:
 
     # Update denoiser config
     experiment_config.denoiser.process_variance = args.process_variance
-    experiment_config.denoiser.initial_measurement_noise = args.initial_measurement_noise
+    experiment_config.denoiser.initial_measurement_noise = (
+        args.initial_measurement_noise
+    )
     experiment_config.denoiser.adaptation_interval = args.adaptation_interval
     experiment_config.denoiser.window_size = args.denoiser_window_size
     experiment_config.denoiser.hop_size = args.denoiser_hop_size
@@ -145,13 +148,13 @@ def main() -> None:
                 # Just run optimization
                 optuna_experiment_runner.run_optimization(
                     model_class=MODELS_REGISTRY[args.model_type],
-                    denoiser_class=DENOISE_REGISTRY[args.denoiser]
+                    denoiser_class=DENOISE_REGISTRY[args.denoiser],
                 )
             else:
                 # Run optimization and then final experiment
                 optuna_experiment_runner.run_with_best_params(
                     model_class=MODELS_REGISTRY[args.model_type],
-                    denoiser_class=DENOISE_REGISTRY[args.denoiser]
+                    denoiser_class=DENOISE_REGISTRY[args.denoiser],
                 )
         else:
             # Create regular ExperimentRunner
@@ -162,7 +165,7 @@ def main() -> None:
             )
             regular_experiment_runner.run_experiment(
                 model_class=MODELS_REGISTRY[args.model_type],
-                denoiser_class=DENOISE_REGISTRY[args.denoiser]
+                denoiser_class=DENOISE_REGISTRY[args.denoiser],
             )
     except KeyError:
         logger.error("Model type %s not supported yet.", args.model_type)
@@ -224,15 +227,18 @@ def _add_data_args(
         help="Number of frequency bands",
     )
 
+
 def _add_denoising_args(
     parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
 ) -> None:
     denoising_args = parser.add_argument_group("Denoiser Arguments")
     denoising_args.add_argument(
         "--denoiser",
+        "-d",
         type=str,
-        default="identity",
-        help="Type of denoiser to use (default: identity)",
+        choices=list(DENOISE_REGISTRY.keys()),
+        required=True,
+        help="Type of denoiser to use",
     )
     denoising_args.add_argument(
         "--process-variance",
@@ -294,6 +300,7 @@ def _add_denoising_args(
         default=experiment_config.denoiser.adaptive,
         help="Enable adaptive mode for the denoiser (default: True)",
     )
+
 
 def _add_training_args(
     parser: argparse.ArgumentParser, experiment_config: ExperimentConfig
@@ -422,15 +429,7 @@ def _add_model_args(parser: argparse.ArgumentParser) -> None:
         "-m",
         type=str,
         required=True,
-        choices=[
-            "ast",
-            "cnn14",
-            "dainet19",
-            "leenet24",
-            "mobilenetv1",
-            "mobilenetv2",
-            "resnet38",
-        ],
+        choices=list(MODELS_REGISTRY.keys()),
         help="Type of model architecture to use",
     )
 

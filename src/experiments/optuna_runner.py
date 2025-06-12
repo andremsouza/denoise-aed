@@ -190,7 +190,7 @@ class OptunaExperimentRunner(ExperimentRunner):
             run_name = self._create_run_name_name(
                 model_class=model_class.__name__,
                 denoiser_class=denoiser_class.__name__,
-                dataset_type=dataset_type
+                dataset_type=dataset_type,
             )
             trial_experiment_name = f"{run_name}_trial{trial.number}"
 
@@ -276,7 +276,9 @@ class OptunaExperimentRunner(ExperimentRunner):
             raise e
 
     def run_optimization(
-        self, model_class: type[pl.LightningModule], denoiser_class: type[pl.LightningModule]
+        self,
+        model_class: type[pl.LightningModule],
+        denoiser_class: type[pl.LightningModule],
     ) -> tuple[ExperimentConfig, float]:
         """Runs the Optuna hyperparameter optimization study.
 
@@ -312,7 +314,7 @@ class OptunaExperimentRunner(ExperimentRunner):
             logger.info("Optimizing %s to %s", self.optimization_metric, self.direction)
 
         study = optuna.create_study(
-            study_name=f"{self.study_name}_{model_class.__name__}",
+            study_name=f"{self.study_name}_{model_class.__name__}_{denoiser_class.__name__}",
             storage=self.storage,
             load_if_exists=True,
             direction=self.direction,
@@ -392,7 +394,11 @@ class OptunaExperimentRunner(ExperimentRunner):
 
         return best_config, study.best_value
 
-    def run_with_best_params(self, model_class: type[pl.LightningModule], denoiser_class: type[pl.LightningModule]) -> None:
+    def run_with_best_params(
+        self,
+        model_class: type[pl.LightningModule],
+        denoiser_class: type[pl.LightningModule],
+    ) -> None:
         """Runs hyperparameter optimization to find the best parameters and then
         executes a final experiment using these optimal parameters.
 
