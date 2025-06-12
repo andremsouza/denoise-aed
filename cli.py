@@ -44,7 +44,7 @@ MODELS_REGISTRY = {
 DENOISE_REGISTRY: dict[str, type] = {
     "kalman": kalman.AdaptiveKalman,
     "sdrom": sdrom.SDROM,
-    "spectral_substraction": spectral_subtraction.SpectralSubtraction,
+    "spectral_subtraction": spectral_subtraction.SpectralSubtraction,
     "identity": identity.IdentityDenoiser,
 }
 
