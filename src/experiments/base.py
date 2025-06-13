@@ -234,9 +234,7 @@ class ExperimentRunner(object):
         Returns:
             Instantiated model
         """
-        return denoiser_class(self.experiment_config.denoiser).to(
-            self.experiment_config.training.device
-        )
+        return denoiser_class(self.experiment_config.denoiser)
 
     def _load_checkpoint(
         self, model_class: type[pl.LightningModule], checkpoint_file: str
@@ -486,6 +484,9 @@ class ExperimentRunner(object):
         )
 
         denoiser = self._create_denoiser(denoiser_class)
+        denoiser.eval()
+        if self.verbose:
+            logger.info("Using denoiser: %s", denoiser_class.__name__)
         train_dataloader.dataset.transform = denoiser
         test_dataloader.dataset.transform = denoiser
 

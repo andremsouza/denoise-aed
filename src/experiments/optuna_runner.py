@@ -184,6 +184,9 @@ class OptunaExperimentRunner(ExperimentRunner):
             )
 
             denoiser = self._create_denoiser(denoiser_class)
+            denoiser.eval()
+            if self.verbose:
+                logger.info("Using denoiser: %s", denoiser_class.__name__)
             train_dataloader.dataset.transform = denoiser
             test_dataloader.dataset.transform = denoiser
 

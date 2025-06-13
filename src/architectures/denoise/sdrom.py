@@ -1,5 +1,6 @@
 import torch
-from torchlibrosa.stft import STFT, ISTFT
+import librosa
+import numpy as np
 
 from src.architectures.denoise.BaseDenoiserLightningModule import (
     BaseDenoiserLightningModule,
@@ -9,39 +10,31 @@ from src.architectures.denoise.BaseDenoiserLightningModule import (
 class SDROM(BaseDenoiserLightningModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.stft_fn = STFT(
-            n_fft=self.window_size,
-            hop_length=self.hop_size,
-            win_length=self.window_size,
-        )
-
-        self.istft_fn = ISTFT(
-            n_fft=self.window_size,
-            hop_length=self.hop_size,
-            win_length=self.window_size,
-        )
 
     def forward(self, x: torch.Tensor, *args, **kwargs) -> torch.Tensor:
         """Aplica filtro SDROM com parâmetros adaptativos."""
+        alpha = self.alpha
+        beta = self.beta
+        adaptive = self.adaptive
+        y = x.cpu().numpy() if x.is_cuda else x.numpy()
+        stft = librosa.stft(y, n_fft=self.window_size, hop_length=self.hop_size)
+        magnitude, phase = np.abs(stft), np.angle(stft)
+        mean_magnitude = np.zeros_like(magnitude[:, 0])
 
-        stft = self.stft_fn(x)
-
-        magnitude, phase = torch.abs(stft), torch.angle(stft)
-        mean_magnitude = torch.zeros_like(magnitude[:, 0])
-
-        for i in torch.range(start=0, end=magnitude.shape[1]):
-            curr_alpha = (
-                self.alpha / (1 + torch.log1p(i)) if self.adaptive else self.alpha
-            )
-            curr_beta = self.beta / (1 + torch.log1p(i)) if self.adaptive else self.beta
+        for i in range(magnitude.shape[1]):
+            curr_alpha = alpha / (1 + np.log1p(i)) if adaptive else alpha
+            curr_beta = beta / (1 + np.log1p(i)) if adaptive else beta
 
             mean_magnitude = (
-                curr_alpha * mean_magnitude + (1 - curr_alpha) * magnitude[:, int(i)]
+                curr_alpha * mean_magnitude + (1 - curr_alpha) * magnitude[:, i]
             )
-            magnitude[:, int(i)] = torch.maximum(
-                magnitude[:, int(i)] - curr_beta * mean_magnitude,
-                torch.zeros_like(magnitude[:, int(i)]),
+            magnitude[:, i] = np.maximum(
+                magnitude[:, i] - curr_beta * mean_magnitude, 0
             )
 
-        reconstructed = magnitude * torch.exp(1j * phase)
-        return self.istft_fn(reconstructed)
+        x_denoised = torch.from_numpy(
+            librosa.istft(magnitude * np.exp(1j * phase), hop_length=self.hop_size)
+        )
+        assert x_denoised.shape == x.shape, "Output shape mismatch"
+
+        return x_denoised.to(x.device)

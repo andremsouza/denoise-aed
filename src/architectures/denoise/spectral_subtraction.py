@@ -1,32 +1,33 @@
-from torchlibrosa.stft import STFT, ISTFT
+import librosa
+import numpy as np
 import torch
 
-from src.architectures.denoise.BaseDenoiserLightningModule import BaseDenoiserLightningModule
+from src.architectures.denoise.BaseDenoiserLightningModule import (
+    BaseDenoiserLightningModule,
+)
+
 
 class SpectralSubtraction(BaseDenoiserLightningModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.stft_fn = STFT(
-            n_fft=self.window_size,
-            hop_length=self.hop_size,
-            win_length=self.window_size)
-
-        self.istft_fn = ISTFT(
-            n_fft=self.window_size,
-            hop_length=self.hop_size,
-            win_length=self.window_size
-        )
-
     def forward(self, x: torch.Tensor, *args, **kwargs) -> torch.Tensor:
         """Aplica subtração espectral com parâmetros ajustáveis."""
-        stft = self.stft_fn(x)
-        magnitude, phase = torch.abs(stft), torch.angle(stft)
+        y = x.cpu().numpy() if x.is_cuda else x.numpy()
+        noise_reduction_factor = self.noise_reduction_factor
+        noise_window_duration = self.noise_window_duration
 
-        noise_frames = int(self.noise_window_duration * self.sample_rate/ self.hop_size)
-        noise_spectrum = torch.mean(magnitude[:, :noise_frames], dim=1, keepdim=True)
+        stft = librosa.stft(y, n_fft=self.window_size, hop_length=self.hop_size)
+        magnitude, phase = np.abs(stft), np.angle(stft)
 
-        subtracted = torch.maximum(magnitude - self.noise_reduction_factor * noise_spectrum, torch.zeros_like(magnitude))
+        noise_frames = int(noise_window_duration * self.sample_rate / self.hop_size)
+        noise_spectrum = np.mean(magnitude[:, :noise_frames], axis=1, keepdims=True)
 
-        reconstructed = subtracted * torch.exp(1j * phase)
-        return self.istft_fn(reconstructed)
+        subtracted = np.maximum(magnitude - noise_reduction_factor * noise_spectrum, 0)
+
+        x_denoised = torch.from_numpy(
+            librosa.istft(subtracted * np.exp(1j * phase), hop_length=self.hop_size)
+        )
+        assert x_denoised.shape == x.shape, "Output shape mismatch"
+
+        return x_denoised.to(x.device)
