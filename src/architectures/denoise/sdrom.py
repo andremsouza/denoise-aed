@@ -35,6 +35,15 @@ class SDROM(BaseDenoiserLightningModule):
         x_denoised = torch.from_numpy(
             librosa.istft(magnitude * np.exp(1j * phase), hop_length=self.hop_size)
         )
+        # Ensure the output shape matches the input shape
+        # If x_denoised is larger than x, we trim it
+        if x_denoised.shape[0] > x.shape[0]:
+            x_denoised = x_denoised[: x.shape[0]]
+        elif x_denoised.shape[0] < x.shape[0]:
+            # If x_denoised is smaller, we pad it
+            padding = x.shape[0] - x_denoised.shape[0]
+            x_denoised = torch.nn.functional.pad(x_denoised, (0, padding))
+        # Check if the output shape matches the input shape
         assert x_denoised.shape == x.shape, "Output shape mismatch"
 
         return x_denoised.to(x.device)
