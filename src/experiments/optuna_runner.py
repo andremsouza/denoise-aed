@@ -362,6 +362,7 @@ class OptunaExperimentRunner(ExperimentRunner):
                     n_trials=self.n_trials,
                     timeout=self.timeout,
                     n_jobs=self.n_jobs,
+                    catch=(RuntimeError, optuna.exceptions.TrialPruned),
                     show_progress_bar=self.verbose,
                 )
 
