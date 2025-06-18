@@ -6,6 +6,7 @@ Command-line interface for running intrinsic dimension experiments.
 import argparse
 import logging
 
+import optuna
 import torch
 
 from src.architectures import (
@@ -127,8 +128,38 @@ def main() -> None:
     logger.info("Arguments: %s", args)
 
     try:
+        # Check if running with best Optuna hyperparameters
+        if args.run_best_optuna:
+            # Load the Optuna study and best trial
+            study_name = args.study_name if args.study_name else experiment_prefix
+            study = optuna.load_study(
+                study_name=f"{study_name}_{args.model_type}_{args.denoiser}",
+                storage=args.storage,
+            )
+            best_trial = study.best_trial
+            logger.info(
+                "Loaded best trial #%d from Optuna study: %s",
+                best_trial.number,
+                best_trial.params,
+            )
+
+            # Create config from best trial
+            best_config = ExperimentConfig.from_trial(best_trial, experiment_config)
+            # Update experiment config
+            experiment_config = best_config
+
+            # Run experiment with best config
+            regular_experiment_runner = ExperimentRunner(
+                experiment_config=experiment_config,
+                experiment_prefix=experiment_prefix,
+                verbose=True,
+            )
+            regular_experiment_runner.run_experiment(
+                model_class=MODELS_REGISTRY[args.model_type],
+                denoiser_class=DENOISE_REGISTRY[args.denoiser],
+            )
         # Check if optimization is enabled
-        if args.optimize or args.optimize_only:
+        elif args.optimize or args.optimize_only:
             # Create OptunaExperimentRunner
             optuna_experiment_runner = OptunaExperimentRunner(
                 experiment_config=experiment_config,
@@ -557,6 +588,11 @@ def _add_optuna_args(
         type=str,
         default=experiment_config.infrastructure.optuna_storage,
         help="Optuna storage URL (e.g., sqlite:///optuna.db)",
+    )
+    optuna_args.add_argument(
+        "--run-best-optuna",
+        action="store_true",
+        help="Run experiment with best hyperparameters from previous Optuna study",
     )
 
 
