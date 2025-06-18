@@ -3,6 +3,8 @@
 from datetime import datetime
 import gc
 import logging
+import random
+import time
 
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
@@ -167,6 +169,14 @@ class OptunaExperimentRunner(ExperimentRunner):
         Returns:
             Value of the optimization metric
         """
+        # Wait a random time to avoid simultaneous trials starting at the same time
+        if self.verbose:
+            logger.info(
+                "Trial %s - Waiting for a random time before starting...", trial.number
+            )
+        time.sleep(random.uniform(1, 10))
+        if self.verbose:
+            logger.info("Trial %s - Starting...", trial.number)
         trial_config = ExperimentConfig.from_trial(trial, self.experiment_config)
 
         if self.verbose:
