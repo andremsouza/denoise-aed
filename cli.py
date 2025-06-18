@@ -132,8 +132,10 @@ def main() -> None:
         if args.run_best_optuna:
             # Load the Optuna study and best trial
             study_name = args.study_name if args.study_name else experiment_prefix
+            model_type = MODELS_REGISTRY[args.model_type].__name__
+            denoiser_type = DENOISE_REGISTRY[args.denoiser].__name__
             study = optuna.load_study(
-                study_name=f"{study_name}_{args.model_type}_{args.denoiser}",
+                study_name=f"{study_name}_{model_type}_{denoiser_type}",
                 storage=args.storage,
             )
             best_trial = study.best_trial
@@ -198,8 +200,10 @@ def main() -> None:
                 model_class=MODELS_REGISTRY[args.model_type],
                 denoiser_class=DENOISE_REGISTRY[args.denoiser],
             )
-    except KeyError:
-        logger.error("Model type %s not supported yet.", args.model_type)
+    except KeyError as e:
+        logger.error(
+            "Model type %s not supported yet. Exception %s", args.model_type, e
+        )
         return
 
     logger.info("Experiment complete")
