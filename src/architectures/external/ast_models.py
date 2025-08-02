@@ -67,7 +67,7 @@ class ASTModel(nn.Module):
             timm.__version__ == "0.4.5"
         ), "Please use timm == 0.4.5, the code might not be compatible with newer versions."
 
-        if verbose == True:
+        if verbose:
             print("---------------AST Model Summary---------------")
             print(
                 "ImageNet pretraining: {:s}, AudioSet pretraining: {:s}".format(
