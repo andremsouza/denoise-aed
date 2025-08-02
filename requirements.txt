@@ -1,0 +1,34 @@
+--index-url https://download.pytorch.org/whl/cu126
+--extra-index-url https://pypi.python.org/simple
+altair[all]
+boto3
+dotenv
+h5py
+librosa
+lightning
+matplotlib
+mlflow
+numpy
+optuna
+optuna-integration[pytorch_lightning]
+pandas
+polars
+psutil
+psycopg2-binary
+psycopg[binary]
+pystoi
+pytest
+pytest-cov
+scikit-dimension
+scikit_learn
+seaborn
+standard-imghdr
+tensorboard
+tensorboardX
+timm==0.4.5
+torch
+torchlibrosa
+torchmetrics
+torchaudio
+torchvision
+wget
