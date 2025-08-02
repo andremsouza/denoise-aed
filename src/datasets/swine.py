@@ -632,7 +632,7 @@ class SwineMFCCDataset(SwineSpectrogramDataset):
                 idx = (
                     (idx + 1) % len(self)
                     if idx + 1 < len(self)
-                    else np.random.Generator().integers(0, len(self))
+                    else int(torch.randint(0, len(self), (1,)))
                 )
         # Process sample after successful load
         sample_data: pd.Series = self.data.iloc[idx]
