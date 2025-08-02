@@ -184,7 +184,7 @@ def test_dataset_transform_and_target_transform(
     monkeypatch.setattr("librosa.load", mock_librosa_load)
 
     def mock_transform(x):
-        # Mock transform that concatenes the waveform with itself, doubling its length
+        # Mock transform that concatenates the waveform with itself, doubling its length
         return torch.cat((x, x), dim=0)
 
     def mock_target_transform(y):
