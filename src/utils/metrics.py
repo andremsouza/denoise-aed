@@ -86,7 +86,7 @@ def calculate_sdr(reference_audio: np.ndarray, estimated_audio: np.ndarray) -> f
         reference_audio, estimated_audio
     )
     if len(reference_audio) != len(estimated_audio):
-        raise ValueError("Os áudios devem ter o mesmo comprimento")
+        raise ValueError("Audio signals must have the same length")
 
     signal_power = np.sum(reference_audio**2)
     distortion_power = np.sum((estimated_audio - reference_audio) ** 2)
