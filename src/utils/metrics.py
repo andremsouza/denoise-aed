@@ -65,7 +65,7 @@ def calculate_stoi(
     """
     min_len = min(len(original_audio), len(processed_audio))
     if min_len < sr:
-        raise ValueError(f"Áudio muito curto ({min_len/sr:.2f}s). Mínimo: 1 segundo.")
+        raise ValueError(f"Audio too short ({min_len/sr:.2f}s). Minimum: 1 second.")
 
     return stoi(original_audio[:min_len], processed_audio[:min_len], sr, extended=False)
 
