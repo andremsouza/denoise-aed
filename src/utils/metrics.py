@@ -28,7 +28,7 @@ def calculate_snr(original_audio: np.ndarray, processed_audio: np.ndarray) -> fl
     )
 
     if len(original_audio) != len(processed_audio):
-        raise ValueError("Os áudios devem ter o mesmo comprimento")
+        raise ValueError("Audio signals must have the same length")
 
     ref_energy = np.dot(original_audio, original_audio)
     if ref_energy < 1e-10:  # Evita divisão por zero
