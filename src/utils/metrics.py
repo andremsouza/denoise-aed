@@ -6,7 +6,7 @@ from typing import Tuple, Union
 def adjust_audio_length(
     ref_audio: np.ndarray, proc_audio: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Ajusta os áudios para terem o mesmo comprimento (o menor dos dois)"""
+    """Adjusts the audios to have the same length (the shorter of the two)."""
     min_len = min(len(ref_audio), len(proc_audio))
     return ref_audio[:min_len], proc_audio[:min_len]
 
