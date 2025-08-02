@@ -5,7 +5,6 @@ This module contains the dataclass-based configuration system for experiments.
 
 from dataclasses import dataclass, field, asdict
 import os
-from typing import Any
 from urllib.parse import quote_plus
 
 import dotenv
@@ -13,6 +12,7 @@ import optuna
 import torch
 
 from src.config.model_config import AudioModelConfig
+from src.config.denoiser_config import DenoiserConfig
 
 dotenv.load_dotenv(override=True)
 
@@ -71,10 +71,10 @@ class DataConfig:
     """
 
     data_directory: str = "./data/aswine/audio/"
-    annotation_file: str = "./data/aswine/meta/aswine_raw_full.csv"
-    train_annotation_file: str = "./data/aswine/meta/train_aswine_raw_full.csv"
-    val_annotation_file: str = "./data/aswine/meta/val_aswine_raw_full.csv"
-    test_annotation_file: str = "./data/aswine/meta/test_aswine_raw_full.csv"
+    annotation_file: str = "./data/aswine/meta/raw/aswine_raw_full.csv"
+    train_annotation_file: str = "./data/aswine/meta/raw/aswine_raw_train.csv"
+    val_annotation_file: str = "./data/aswine/meta/raw/aswine_raw_test.csv"
+    test_annotation_file: str = "./data/aswine/meta/aswine_raw_test.csv"
     sample_rate: int = 16000
     num_bands: int = 64
     train_mean: float | None = -0.0003
@@ -142,11 +142,11 @@ class EvaluationConfig:
     """
 
     pred_threshold: float = 0.5
-    skip_trained_models: bool = True
+    skip_trained_models: bool = False
 
 
 @dataclass
-class ExperimentConfig(object):
+class ExperimentConfig:
     """Complete experiment configuration.
 
     This combines all configuration components into a single dataclass.
@@ -162,6 +162,7 @@ class ExperimentConfig(object):
     infrastructure: InfrastructureConfig = field(default_factory=InfrastructureConfig)
     data: DataConfig = field(default_factory=DataConfig)
     model: AudioModelConfig = field(default_factory=AudioModelConfig)
+    denoiser: DenoiserConfig = field(default_factory=DenoiserConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     annotation: AnnotationConfig = field(default_factory=AnnotationConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
@@ -188,6 +189,7 @@ class ExperimentConfig(object):
                 "infrastructure": asdict(self.infrastructure),
                 "data": asdict(self.data),
                 "model": asdict(self.model),
+                "denoiser": asdict(self.denoiser),
                 "training": asdict(self.training),
                 "annotation": asdict(self.annotation),
                 "evaluation": asdict(self.evaluation),
@@ -201,6 +203,7 @@ class ExperimentConfig(object):
                 ("infrastructure", self.infrastructure),
                 ("data", self.data),
                 ("model", self.model),
+                ("denoiser", self.denoiser),
                 ("training", self.training),
                 ("annotation", self.annotation),
                 ("evaluation", self.evaluation),
@@ -215,7 +218,9 @@ class ExperimentConfig(object):
             return flat_dict
 
     @classmethod
-    def from_trial(cls, trial: optuna.Trial, base_config=None):
+    def from_trial(
+        cls, trial: optuna.Trial | optuna.trial.FrozenTrial, base_config=None
+    ):
         """Create a configuration from an Optuna trial.
 
         Args:
@@ -243,15 +248,36 @@ class ExperimentConfig(object):
         config.training.weight_decay = trial.suggest_float(
             "weight_decay", 1e-6, 1e-2, log=True
         )
+        config.denoiser.process_variance = trial.suggest_float(
+            "denoise_process_variance", 1e-6, 1e-2, log=True
+        )
+        config.denoiser.initial_measurement_noise = trial.suggest_float(
+            "denoise_initial_measurement_noise", 1e-6, 1e-2, log=True
+        )
+        config.denoiser.adaptation_interval = trial.suggest_int(
+            "denoise_adaptation_interval", 1, 1000
+        )
+        config.denoiser.window_size = trial.suggest_int(
+            "denoise_window_size", 256, 4096, log=True
+        )
+        config.denoiser.hop_size = trial.suggest_int(
+            "denoise_hop_size", 128, 2048, log=True
+        )
+        config.denoiser.noise_reduction_factor = trial.suggest_float(
+            "denoise_noise_reduction_factor", 0.0, 1.0
+        )
+        config.denoiser.noise_window_duration = trial.suggest_float(
+            "denoise_noise_window_duration", 0.0, 1.0
+        )
+        config.denoiser.alpha = trial.suggest_float("denoise_alpha", 0.0, 1.0)
+        config.denoiser.beta = trial.suggest_float("denoise_beta", 0.0, 1.0)
+        config.denoiser.adaptive = trial.suggest_categorical(
+            "denoise_adaptive", [True, False]
+        )
 
         # Model-specific parameters
         if isinstance(config.model, AudioModelConfig):
             config.model.learning_rate = config.training.learning_rate
             config.model.weight_decay = config.training.weight_decay
-
-            # AST-specific parameters
-            if hasattr(config.model, "fstride") and hasattr(config.model, "tstride"):
-                config.model.fstride = trial.suggest_int("fstride", 10, 10)
-                config.model.tstride = trial.suggest_int("tstride", 10, 10)
 
         return config

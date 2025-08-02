@@ -22,9 +22,9 @@ class AudioModelConfig(object):
     lr_scheduler_patience: int = 2
     sample_rate: int = 16000
     # window_size = 0.025s * 16000Hz = 400
-    window_size: int = 1024
+    window_size: int = 400
     # hop_size = 0.01s * 16000Hz = 160
-    hop_size: int = 320
+    hop_size: int = 160
     mel_bins: int = 64
     fmin: int = 50
     fmax: int = 14000
@@ -53,11 +53,13 @@ class PLASTConfig(AudioModelConfig):
         checkpoint_path: Path to checkpoint
     """
 
+    learning_rate: float = 1e-3
+    weight_decay: float = 1e-2
     label_dim: int = 7
     fstride: int = 10
     tstride: int = 10
-    input_fdim: int = 64
-    input_tdim: int = 51
+    input_fdim: int = 64  # Should be equal to mel_bins
+    input_tdim: int = 100  # Should be equal to sample_rate / hop_size
     imagenet_pretrain: bool = True
     audioset_pretrain: bool = True
     model_size: str = "base384"

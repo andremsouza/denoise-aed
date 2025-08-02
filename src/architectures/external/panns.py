@@ -199,14 +199,9 @@ class Cnn14(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()
 
-        self.bn0 = nn.BatchNorm2d(64)
+        self.bn0 = nn.BatchNorm2d(mel_bins)
 
         self.conv_block1 = ConvBlock(in_channels=1, out_channels=64)
         self.conv_block2 = ConvBlock(in_channels=64, out_channels=128)
@@ -408,12 +403,7 @@ class Cnn14_no_dropout(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -512,12 +502,7 @@ class Cnn6(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -616,12 +601,7 @@ class Cnn10(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -979,12 +959,7 @@ class ResNet22(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -1086,14 +1061,9 @@ class ResNet38(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
-        self.bn0 = nn.BatchNorm2d(64)
+        self.bn0 = nn.BatchNorm2d(mel_bins)
 
         self.conv_block1 = ConvBlock(in_channels=1, out_channels=64)
         # self.conv_block2 = ConvBlock(in_channels=64, out_channels=64)
@@ -1193,12 +1163,7 @@ class ResNet54(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -1300,12 +1265,7 @@ class Cnn14_emb512(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -1410,12 +1370,7 @@ class Cnn14_emb128(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -1520,12 +1475,7 @@ class Cnn14_emb32(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -1630,14 +1580,9 @@ class MobileNetV1(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
-        self.bn0 = nn.BatchNorm2d(64)
+        self.bn0 = nn.BatchNorm2d(mel_bins)
 
         def conv_bn(inp, oup, stride):
             _layers = [
@@ -1824,14 +1769,9 @@ class MobileNetV2(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
-        self.bn0 = nn.BatchNorm2d(64)
+        self.bn0 = nn.BatchNorm2d(mel_bins)
 
         width_mult = 1.0
         block = InvertedResidual
@@ -2258,7 +2198,7 @@ class DaiNet19(nn.Module):
             padding=0,
             bias=False,
         )
-        self.bn0 = nn.BatchNorm1d(64)
+        self.bn0 = nn.BatchNorm1d(mel_bins)
         self.conv_block1 = DaiNetResBlock(64, 64, 3)
         self.conv_block2 = DaiNetResBlock(64, 128, 3)
         self.conv_block3 = DaiNetResBlock(128, 256, 3)
@@ -2699,12 +2639,7 @@ class Wavegram_Cnn14(nn.Module):
         self.pre_block4 = ConvBlock(in_channels=4, out_channels=64)
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -2823,12 +2758,7 @@ class Wavegram_Logmel_Cnn14(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -2963,12 +2893,7 @@ class Wavegram_Logmel128_Cnn14(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=16,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(128)
 
@@ -3096,12 +3021,7 @@ class Cnn14_16k(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -3213,12 +3133,7 @@ class Cnn14_8k(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -3323,12 +3238,7 @@ class Cnn14_mixup_time_domain(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -3435,12 +3345,7 @@ class Cnn14_mel32(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=4,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(32)
 
@@ -3545,12 +3450,7 @@ class Cnn14_mel128(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=16,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(128)
 
@@ -3657,12 +3557,7 @@ class Cnn14_DecisionLevelMax(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -3779,12 +3674,7 @@ class Cnn14_DecisionLevelAvg(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 
@@ -3905,12 +3795,7 @@ class Cnn14_DecisionLevelAtt(nn.Module):
         )
 
         # Spec augmenter
-        self.spec_augmenter = SpecAugmentation(
-            time_drop_width=64,
-            time_stripes_num=2,
-            freq_drop_width=8,
-            freq_stripes_num=2,
-        )
+        self.spec_augmenter = torch.nn.Identity()  # Disable spec augmenter
 
         self.bn0 = nn.BatchNorm2d(64)
 

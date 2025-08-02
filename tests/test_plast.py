@@ -11,22 +11,7 @@ from src.config.model_config import PLASTConfig
 @pytest.fixture
 def dummy_config():
     # Create a minimal PLASTConfig tailored for testing.
-    return PLASTConfig(
-        learning_rate=1e-4,
-        weight_decay=1e-2,
-        metrics_threshold=0.5,
-        lr_scheduler_patience=5,
-        label_dim=5,
-        fstride=10,
-        tstride=10,
-        input_fdim=64,
-        input_tdim=96,
-        imagenet_pretrain=True,
-        audioset_pretrain=False,
-        model_size="base384",
-        verbose=True,
-        checkpoint_path=None,
-    )
+    return PLASTConfig(label_dim=5)
 
 
 @pytest.fixture
@@ -38,7 +23,8 @@ def model(dummy_config):
 
 def test_forward(model):
     batch_size = 4
-    x = torch.randn(batch_size, 96, 64)
+    x = torch.randn(batch_size, 16000)
+    x = x.to(model.device)
     output = model(x)
     # The forward call applies mlp_head so the output should be (batch, 5)
     assert output.shape == (batch_size, 5)
@@ -46,7 +32,8 @@ def test_forward(model):
 
 def test_extract_embeddings(model):
     batch_size = 4
-    x = torch.randn(batch_size, 96, 64)
+    x = torch.randn(batch_size, 16000)
+    x = x.to(model.device)
     embeddings = model.extract_embeddings(x)
     # resulting in a tensor of shape (batch, 768)
     assert embeddings.shape == (batch_size, 768)
@@ -56,7 +43,8 @@ def test_trainer_prediction(model):
 
     # Create a small dummy dataset
     batch_size = 4
-    x = torch.randn(batch_size, 96, 64)
+    x = torch.randn(batch_size, 16000)
+    x = x.to(model.device)
 
     # Create a simple DataLoader
     dataset = TensorDataset(x)
