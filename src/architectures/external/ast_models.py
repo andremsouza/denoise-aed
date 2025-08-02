@@ -111,7 +111,7 @@ class ASTModel(nn.Module):
             f_dim, t_dim = self.get_shape(fstride, tstride, input_fdim, input_tdim)
             num_patches = f_dim * t_dim
             self.v.patch_embed.num_patches = num_patches
-            if verbose == True:
+            if verbose:
                 print(
                     "frequncey stride={:d}, time stride={:d}".format(fstride, tstride)
                 )
