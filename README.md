@@ -89,7 +89,7 @@ This suggests that the models are capable of learning robust features directly f
 
 The figure below, taken from the paper, illustrates this finding. The "No Denoiser" (baseline) condition consistently outperforms the other methods across all evaluated model architectures.
 
-![Experimental Results](denoising_experiments_mean_metrics.pdf)
+![Experimental Results](denoising_experiments_mean_metrics.png)
 
 ## Citation
 
